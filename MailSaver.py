@@ -18,7 +18,7 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive.readonly'
 ]
 
-SZKOLA_PREFIXES = ['1AP', '2AP', '2BP', '3AI', '3BI', '1AI', '2AI', '2BI']
+SZKOLA_PREFIXES = ['1AP', '2AP', '2BP', '3AI', '3BI', '1AI', '2AI', '2BI'] # all szkola klasy
 
 class MailSaverApp:
     def __init__(self, root):
@@ -48,9 +48,9 @@ class MailSaverApp:
         search_frame = ttk.Labelframe(self.root, text="Ustawienia wyszukiwania", padding=10)
         search_frame.pack(fill=X, padx=10, pady=10)
 
-        ttk.Radiobutton(search_frame, text="Fraza", variable=self.search_type, value="fraza",
+        ttk.Radiobutton(search_frame, text="Według Frazy", variable=self.search_type, value="fraza",
                         command=self.toggle_phrase).grid(row=0, column=0, sticky=W, padx=5, pady=2)
-        ttk.Radiobutton(search_frame, text="Szkola", variable=self.search_type, value="szkola",
+        ttk.Radiobutton(search_frame, text="Według Szkoła Klasy", variable=self.search_type, value="szkola",
                         command=self.toggle_phrase).grid(row=0, column=1, sticky=W, padx=5, pady=2)
 
         self.phrase_label = ttk.Label(search_frame, text="Fraza w tytule e-mailu:")
@@ -129,6 +129,10 @@ class MailSaverApp:
                 token.write(creds.to_json())
         return creds
 
+    def dopasuj_prefixy(self, subj, prefixy):
+        subj_lower = subj.lower()
+        return any(subj_lower.startswith(p.lower()) for p in prefixy)
+
     def run(self):
         stype = self.search_type.get()
         phrase = self.search_phrase.get().strip()
@@ -167,17 +171,16 @@ class MailSaverApp:
             detail = gmail.users().messages().get(userId='me', id=m['id'], format='full').execute()
             headers = detail['payload']['headers']
             subj = next((h['value'] for h in headers if h['name']=='Subject'), '')
-
-            if stype == 'szkola' and not any(subj.startswith(p) for p in SZKOLA_PREFIXES):
+            if stype == 'szkola' and not self.dopasuj_prefixy(subj, SZKOLA_PREFIXES):
                 continue
-            folder = next((p for p in SZKOLA_PREFIXES if subj.startswith(p)), subj[:3] or 'Nieznane')
+            folder = next((p for p in SZKOLA_PREFIXES if self.dopasuj_prefixy(subj, [p])), subj[:3] or 'Nieznane')
             target = os.path.join(base, folder, subj)
             os.makedirs(target, exist_ok=True)
 
             snippet = detail.get('snippet', '')
             links = re.findall(r'(https?://\S+)', snippet)
             if links:
-                with open(os.path.join(target, 'linki.txt'), 'w', encoding='utf-8') as f:
+                with open(os.path.join(target, 'link.txt'), 'w', encoding='utf-8') as f:
                     f.write("\n".join(links))
 
             parts = detail['payload'].get('parts', [])
@@ -206,7 +209,10 @@ class MailSaverApp:
         files = drive.files().list(q=dquery, fields='files(id,name)').execute().get('files', [])
         for f in files:
             fid, name = f['id'], f['name']
-            folder = next((p for p in SZKOLA_PREFIXES if name.startswith(p)), name[:3] or 'Nieznane')
+            if not self.dopasuj_prefixy(name, SZKOLA_PREFIXES):
+                folder = name[:3] or 'Nieznane'
+            else:
+                folder = next((p for p in SZKOLA_PREFIXES if self.dopasuj_prefixy(name, [p])), name[:3] or 'Nieznane')
             target = os.path.join(base, folder, name)
             os.makedirs(target, exist_ok=True)
             fh = io.BytesIO()
