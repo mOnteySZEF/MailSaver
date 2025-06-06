@@ -1,0 +1,1 @@
+pyinstaller --onefile --icon="MailSaver.ico" --add-data "credentials.json;." --hidden-import "babel.numbers" --noconsole MailSaver.py

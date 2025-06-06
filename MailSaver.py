@@ -26,7 +26,7 @@ class MailSaverApp:
         self.root.title("MailSaver - E-Mail Downloader by mOntey")
         self.root.geometry("760x580")
         self.root.resizable(False, False)
-        self.root.iconbitmap("MailSaver.ico")
+        # self.root.iconbitmap("MailSaver.ico")
         self.root.configure(bg="#f0f4f7")
 
         self.search_type = StringVar(value="fraza")
